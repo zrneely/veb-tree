@@ -26,7 +26,7 @@ impl Clone for VEBTree {
 
 macro_rules! subtree {
     ( $self_: ident, $x: expr ) => {
-        $self_.children.get($x).unwrap().as_ref()
+        $self_.children.get($x).expect("child idx out of bounds").as_ref()
     }
 }
 
@@ -69,6 +69,10 @@ impl VEBTree {
             })
         }
     }
+
+    // =========
+    // observers
+    // =========
 
     pub fn minimum(&self) -> i64 {
         self.min
@@ -118,6 +122,12 @@ impl VEBTree {
             })
         }
     }
+
+    // ========
+    // mutators
+    // ========
+
+    // helper functions for insert
 
     fn insert_subtree(&self, x: i64) -> Option<i64> {
         // subtree not present - we need to look in a different cluster. Since universe > 2, we know summary exists.

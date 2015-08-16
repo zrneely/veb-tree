@@ -1,4 +1,7 @@
 [package]
 name = "veb-tree"
 version = "0.1.0"
-authors = ["Zachary Neely <zneely@sessionm.com>"]
+authors = ["Zachary Neely <zach@zrnee.ly>"]
+description = "A van Emde Boas tree in Rust"
+keywords = ["tree"]
+license = "MIT"
