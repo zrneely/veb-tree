@@ -111,16 +111,23 @@ impl VEBTree {
         } else {
             // look in subtrees
             subtree!(self, self.high(x) as usize).map_or_else(|| {
-                self.insert_subtree(x)
+                self.find_subtree(x)
             }, |subtree| {
                 let max_low = subtree!(self, self.high(x) as usize).unwrap().maximum();
                 if self.low(x) < max_low {
                     Some(self.index(self.high(x), subtree.find_next(self.low(x)).unwrap()))
                 } else {
-                    self.insert_subtree(x)
+                    self.find_subtree(x)
                 }
             })
         }
+    }
+
+    fn find_subtree(&self, x: i64) -> Option<i64> {
+        // subtree not present - we need to look in a different cluster. Since universe > 2, we know summary exists.
+        self.summary.as_ref().unwrap().find_next(self.high(x)).map_or(None, |next_index| {
+            Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().minimum()))
+        })
     }
 
     // ========
@@ -129,28 +136,18 @@ impl VEBTree {
 
     // helper functions for insert
 
-    fn insert_subtree(&self, x: i64) -> Option<i64> {
-        // subtree not present - we need to look in a different cluster. Since universe > 2, we know summary exists.
-        self.summary.as_ref().unwrap().find_next(self.high(x)).map_or(None, |next_index| {
-            Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().minimum()))
-        })
-    }
-
     fn empty_insert(&mut self, x: i64) {
         self.min = x;
         self.max = x;
     }
 
-    pub fn insert(&mut self, x_: i64) {
+    pub fn insert(&mut self, mut x: i64) {
         if self.min == -1 {
-            self.empty_insert(x_);
+            self.empty_insert(x);
         } else {
-            let mut x = x_;
             let universe = self.universe;
             if x < self.min {
-                let tmp = self.min;
-                self.min = x;
-                x = tmp;
+                mem::swap(&mut self.min, &mut x);
             }
             if universe > 2 {
                 let idx = self.high(x) as usize;
