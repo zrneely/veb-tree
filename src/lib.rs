@@ -171,6 +171,40 @@ impl VEBTree {
         }
     }
 
+    pub fn delete(&mut self, x_: i64) {
+        // base cases
+        if self.min == self.max {
+            self.min = -1;
+            self.max = -1;
+        } else if self.universe == 2 {
+            self.min = if x_ == 0 { 1 } else { 0 };
+            self.max = self.min;
+        } else {
+            let mut x = x_;
+            if self.min == x {
+                let first_cluster = self.summary.unwrap().minimum();
+                x = self.index(first_cluster, subtree!(self, firstCluster).unwrap().minimum());
+                self.min = x;
+            }
+            // recurse
+            subtree!(self.high(x) as usize).unwrap().delete(self.low(x));
+            self.max = if subtree!(self.high(x) as usize).unwrap().minimum() == (0 - 1) {
+                self.summary.unwrap().delete(self.high(x));
+                subtree!(self.high(x) as usize).take();
+                if x == self.max {
+                    let summary_max = self.summary.unwrap().maximum();
+                    if summary_max == -1 { 
+                        self.min 
+                    } else { 
+                        self.index(summary_max, subtree!(summary_max as usize).unwrap().maximum())
+                    }
+                }
+            } else if x == self.max {
+                self.index(self.high(x), subtree!(self.high(x) as usize).unwrap().maximum())
+            }
+        }
+    }
+
 }
 
 #[test]
