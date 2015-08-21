@@ -24,9 +24,17 @@ impl Clone for VEBTree {
     }
 }
 
+// helper macros
+
 macro_rules! subtree {
     ( $self_: ident, $x: expr ) => {
         $self_.children.get($x).expect("child idx out of bounds").as_ref()
+    }
+}
+
+macro_rules! subtree_mut {
+    ( $self_: ident, $x: expr ) => {
+        $self_.children.get_mut($x).expect("child idx out of bounds").as_mut()
     }
 }
 
@@ -153,14 +161,15 @@ impl VEBTree {
                 let idx = self.high(x) as usize;
                 let low = self.low(x);
                 let sqrt = self.sqrt_universe;
-                let mut subtree = self.children.get_mut(idx).unwrap();
-                subtree.map_or_else(|| {
-                    let mut new_tree = VEBTree::new(sqrt).unwrap();
-                    new_tree.empty_insert(low);
-                    mem::replace(subtree, Some(Box::new(new_tree)));
-                }, |subtree| {
-                    subtree.insert(low);
-                });
+                let subtree = &mut self.children[idx];
+                match *subtree {
+                    Some(ref mut subtree) => subtree.insert(low),
+                    None => {
+                        let mut new_tree = VEBTree::new(sqrt).unwrap();
+                        new_tree.empty_insert(low);
+                        mem::replace(subtree, Some(Box::new(new_tree)));
+                    },
+                };
             }
             if x > self.max {
                 self.max = x;
@@ -168,36 +177,41 @@ impl VEBTree {
         }
     }
 
-    pub fn delete(&mut self, x_: i64) {
+    pub fn delete(&mut self, mut x: i64) {
         // base cases
         if self.min == self.max {
             self.min = -1;
             self.max = -1;
         } else if self.universe == 2 {
-            self.min = if x_ == 0 { 1 } else { 0 };
+            self.min = if x == 0 { 1 } else { 0 };
             self.max = self.min;
         } else {
-            let mut x = x_;
             if self.min == x {
-                let first_cluster = self.summary.unwrap().minimum();
-                x = self.index(first_cluster, subtree!(self, firstCluster).unwrap().minimum());
+                let first_cluster = self.summary.as_ref().unwrap().minimum();
+                x = self.index(first_cluster, subtree!(self, first_cluster as usize).unwrap().minimum());
                 self.min = x;
             }
             // recurse
-            subtree!(self.high(x) as usize).unwrap().delete(self.low(x));
-            self.max = if subtree!(self.high(x) as usize).unwrap().minimum() == (0 - 1) {
-                self.summary.unwrap().delete(self.high(x));
-                subtree!(self.high(x) as usize).take();
+            let hi = self.high(x);
+            let lo = self.low(x);
+            subtree_mut!(self, hi as usize).unwrap().delete(lo);
+            self.max = if subtree!(self, hi as usize).unwrap().minimum() == (0 - 1) {
+                self.summary.as_mut().unwrap().delete(hi);
+                subtree!(self, hi as usize).take();
                 if x == self.max {
-                    let summary_max = self.summary.unwrap().maximum();
-                    if summary_max == -1 { 
-                        self.min 
-                    } else { 
-                        self.index(summary_max, subtree!(summary_max as usize).unwrap().maximum())
+                    let summary_max = self.summary.as_ref().unwrap().maximum();
+                    if summary_max == -1 {
+                        self.min
+                    } else {
+                        self.index(summary_max, subtree!(self, summary_max as usize).unwrap().maximum())
                     }
+                } else {
+                    self.max
                 }
             } else if x == self.max {
-                self.index(self.high(x), subtree!(self.high(x) as usize).unwrap().maximum())
+                self.index(self.high(x), subtree!(self, hi as usize).unwrap().maximum())
+            } else {
+                self.max
             }
         }
     }
@@ -205,11 +219,55 @@ impl VEBTree {
 }
 
 #[test]
-fn test_cretion() {
+fn creation() {
     assert!(VEBTree::new(50).is_ok());
 }
 
 #[test]
-fn test_creation_fail() {
+fn creation_fail() {
     assert!(VEBTree::new(1).is_err());
+}
+
+#[test]
+fn insertion_and_has() {
+    let mut tree = VEBTree::new(50).unwrap();
+    assert!(!tree.has(25));
+    assert!(!tree.has(26));
+    tree.insert(25);
+    assert!(tree.has(25));
+    assert!(!tree.has(26));
+    tree.insert(26);
+    assert!(tree.has(25));
+    assert!(tree.has(26));
+}
+
+#[test]
+fn find_next() {
+    let mut tree = VEBTree::new(50).unwrap();
+    assert!(tree.find_next(0).is_none());
+    assert!(tree.find_next(24).is_none());
+    assert!(tree.find_next(25).is_none());
+    tree.insert(25);
+    assert!(tree.find_next(0).is_some());
+    assert!(tree.find_next(24).is_some());
+    assert!(tree.find_next(25).is_none());
+}
+
+#[test]
+fn delete() {
+    let mut tree = VEBTree::new(50).unwrap();
+    assert!(!tree.has(25));
+    assert!(!tree.has(26));
+    tree.insert(25);
+    assert!(tree.has(25));
+    assert!(!tree.has(26));
+    tree.insert(26);
+    assert!(tree.has(25));
+    assert!(tree.has(26));
+    tree.delete(26);
+    assert!(!tree.has(26));
+    assert!(tree.has(25));
+    tree.delete(25);
+    assert!(!tree.has(26));
+    assert!(!tree.has(25));
 }
