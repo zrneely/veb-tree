@@ -1,6 +1,7 @@
 
 use std::mem;
 
+#[derive(Debug)]
 pub struct VEBTree {
     // box is necessary for recursion
     children: Vec<Option<Box<VEBTree>>>,
@@ -70,7 +71,7 @@ impl VEBTree {
                     Some(Box::new(VEBTree::new(sqrt_universe).unwrap()))
                 },
                 children: if max_elem <= 2 {
-                    vec![None]
+                    vec![]
                 } else {
                     vec![None; sqrt_universe as usize]
                 },
@@ -94,13 +95,19 @@ impl VEBTree {
         self.universe
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.min > self.max
+    }
+
     pub fn has(&self, x: i64) -> bool {
+        println!("has: x: {:?}, high(x): {:?}, length of children: {:?}", x, self.high(x), self.children.len());
         if x == self.max || x == self.min {
             true
         } else if self.universe == 2 || x > self.universe {
             false
         } else {
             subtree!(self, self.high(x) as usize).map_or(false, |subtree| {
+                println!("has: recursing! high(x): {:?}, sqrt_universe: {:?}, low(x): {:?}", self.high(x), self.sqrt_universe, self.low(x));
                 subtree.has(self.low(x))
             })
         }
@@ -187,9 +194,13 @@ impl VEBTree {
             self.max = self.min;
         } else {
             if self.min == x {
-                let first_cluster = self.summary.as_ref().unwrap().minimum();
-                x = self.index(first_cluster, subtree!(self, first_cluster as usize).unwrap().minimum());
-                self.min = x;
+                self.min = if self.summary.as_ref().unwrap().is_empty() {
+                    let first_cluster = self.summary.as_ref().unwrap().minimum();
+                    x = self.index(first_cluster, subtree!(self, first_cluster as usize).unwrap().minimum());
+                    x
+                } else {
+                    self.max
+                }
             }
             // recurse
             let hi = self.high(x);
@@ -242,12 +253,24 @@ fn insertion_and_has() {
 }
 
 #[test]
+fn is_empty() {
+    let mut tree = VEBTree::new(50).unwrap();
+    assert!(tree.is_empty());
+    tree.insert(25);
+    assert!(!tree.is_empty());
+    tree.delete(25);
+    assert!(tree.is_empty());
+}
+
+#[test]
 fn find_next() {
     let mut tree = VEBTree::new(50).unwrap();
+    println!("find next: empty: {:?}", tree);
     assert!(tree.find_next(0).is_none());
     assert!(tree.find_next(24).is_none());
     assert!(tree.find_next(25).is_none());
     tree.insert(25);
+    println!("find next: 25: {:?}", tree);
     assert!(tree.find_next(0).is_some());
     assert!(tree.find_next(24).is_some());
     assert!(tree.find_next(25).is_none());
@@ -256,18 +279,23 @@ fn find_next() {
 #[test]
 fn delete() {
     let mut tree = VEBTree::new(50).unwrap();
+    println!("delete: empty: {:?}", tree);
     assert!(!tree.has(25));
     assert!(!tree.has(26));
     tree.insert(25);
+    println!("delete: 25: {:?}", tree);
     assert!(tree.has(25));
     assert!(!tree.has(26));
     tree.insert(26);
+    println!("delete: 25 and 26: {:?}", tree);
     assert!(tree.has(25));
     assert!(tree.has(26));
     tree.delete(26);
+    println!("delete: 26 (1 deletion): {:?}", tree);
     assert!(!tree.has(26));
     assert!(tree.has(25));
     tree.delete(25);
+    println!("delete: empty (2 deletions): {:?}", tree);
     assert!(!tree.has(26));
     assert!(!tree.has(25));
 }
