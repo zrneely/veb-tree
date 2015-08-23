@@ -39,6 +39,18 @@ macro_rules! subtree_mut {
     }
 }
 
+macro_rules! summary {
+    ( $self_: ident ) => {
+        $self_.summary.as_ref().expect("summary not present")
+    }
+}
+
+macro_rules! summary_mut {
+    ( $self_: ident ) => {
+        $self_.summary.as_mut().expect("summary not present")
+    }
+}
+
 impl VEBTree {
     fn high(&self, x: i64) -> i64 {
         ((x as f64) / (self.sqrt_universe as f64)).floor() as i64
@@ -60,11 +72,12 @@ impl VEBTree {
         } else {
             // sqrt_universe: 2^(floor(log_2(universe) / 2))
             let sqrt_universe = ((((max_elem as f64).ln()) / (2f64).ln()) / 2f64).exp2() as i64;
+            println!("new: sqrt_universe: {:?}", sqrt_universe);
             Ok(VEBTree {
                 universe: max_elem,
                 sqrt_universe: sqrt_universe,
-                min: 0 - 1,
-                max: 0 - 1,
+                min: max_elem,
+                max: -1,
                 summary: if max_elem <= 2 {
                     None
                 } else {
@@ -101,9 +114,11 @@ impl VEBTree {
 
     pub fn has(&self, x: i64) -> bool {
         println!("has: x: {:?}, high(x): {:?}, length of children: {:?}", x, self.high(x), self.children.len());
-        if x == self.max || x == self.min {
+        if x == self.min || x == self.max {
+            println!("x is min or x is max");
             true
         } else if self.universe == 2 || x > self.universe {
+            println!("x out of range");
             false
         } else {
             subtree!(self, self.high(x) as usize).map_or(false, |subtree| {
@@ -115,7 +130,9 @@ impl VEBTree {
 
     pub fn find_next(&self, x: i64) -> Option<i64> {
         // base case
-        if self.universe == 2 {
+        if self.is_empty() {
+            None
+        } else if self.universe == 2 {
             if x == 0 && self.max == 1 {
                 Some(1)
             } else {
@@ -140,7 +157,7 @@ impl VEBTree {
 
     fn find_subtree(&self, x: i64) -> Option<i64> {
         // subtree not present - we need to look in a different cluster. Since universe > 2, we know summary exists.
-        self.summary.as_ref().unwrap().find_next(self.high(x)).map_or(None, |next_index| {
+        summary!(self).find_next(self.high(x)).map_or(None, |next_index| {
             Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().minimum()))
         })
     }
@@ -149,81 +166,84 @@ impl VEBTree {
     // mutators
     // ========
 
-    // helper functions for insert
-
     fn empty_insert(&mut self, x: i64) {
         self.min = x;
         self.max = x;
     }
 
     pub fn insert(&mut self, mut x: i64) {
-        if self.min == -1 {
+            // TODO rewrite this to be more "rust-y"
+        if self.is_empty() {
             self.empty_insert(x);
-        } else {
-            let universe = self.universe;
+            return;
+        }
+        if self.min == self.max {
             if x < self.min {
-                mem::swap(&mut self.min, &mut x);
-            }
-            if universe > 2 {
-                let idx = self.high(x) as usize;
-                let low = self.low(x);
-                let sqrt = self.sqrt_universe;
-                let subtree = &mut self.children[idx];
-                match *subtree {
-                    Some(ref mut subtree) => subtree.insert(low),
-                    None => {
-                        let mut new_tree = VEBTree::new(sqrt).unwrap();
-                        new_tree.empty_insert(low);
-                        mem::replace(subtree, Some(Box::new(new_tree)));
-                    },
-                };
+                self.min = x;
             }
             if x > self.max {
                 self.max = x;
             }
         }
+        if x < self.min {
+            mem::swap(&mut self.min, &mut x);
+        }
+        if x > self.max {
+            self.max = x;
+        }
+        let idx = self.high(x);
+        let low = self.low(x);
+        let sqrt = self.sqrt_universe;
+        let subtree = &mut self.children[idx as usize];
+        match *subtree {
+            Some(ref mut subtree) => subtree.insert(low),
+            None => {
+                let mut new_tree = VEBTree::new(sqrt).unwrap();
+                new_tree.empty_insert(low);
+                mem::replace(subtree, Some(Box::new(new_tree)));
+                summary_mut!(self).insert(idx);
+            }
+        }
     }
 
     pub fn delete(&mut self, mut x: i64) {
-        // base cases
-        if self.min == self.max {
-            self.min = -1;
+        // TODO rewrite this to be more "rust-y"
+        if self.min == self.max && self.min == x {
+            // x is the only element in this tree
+            self.min = self.universe;
             self.max = -1;
-        } else if self.universe == 2 {
-            self.min = if x == 0 { 1 } else { 0 };
-            self.max = self.min;
-        } else {
-            if self.min == x {
-                self.min = if self.summary.as_ref().unwrap().is_empty() {
-                    let first_cluster = self.summary.as_ref().unwrap().minimum();
-                    x = self.index(first_cluster, subtree!(self, first_cluster as usize).unwrap().minimum());
-                    x
-                } else {
-                    self.max
-                }
-            }
-            // recurse
-            let hi = self.high(x);
-            let lo = self.low(x);
-            subtree_mut!(self, hi as usize).unwrap().delete(lo);
-            self.max = if subtree!(self, hi as usize).unwrap().minimum() == (0 - 1) {
-                self.summary.as_mut().unwrap().delete(hi);
-                subtree!(self, hi as usize).take();
-                if x == self.max {
-                    let summary_max = self.summary.as_ref().unwrap().maximum();
-                    if summary_max == -1 {
-                        self.min
-                    } else {
-                        self.index(summary_max, subtree!(self, summary_max as usize).unwrap().maximum())
-                    }
-                } else {
-                    self.max
-                }
-            } else if x == self.max {
-                self.index(self.high(x), subtree!(self, hi as usize).unwrap().maximum())
+            return;
+        }
+        if self.min == x {
+            // we need to calculate the new minimum
+            if summary!(self).is_empty() {
+                self.min = self.max;
+                return;
             } else {
-                self.max
+                x = subtree!(self, summary!(self).minimum() as usize).unwrap().minimum();
+                self.min = x;
             }
+        }
+        if self.max == x {
+            // we need to calculate the new maximum
+            if summary!(self).is_empty() {
+                self.max = self.min;
+            } else {
+                self.max = subtree!(self, summary!(self).maximum() as usize).unwrap().maximum();
+            }
+        }
+        if summary!(self).is_empty() {
+            return;
+        }
+        // recurse
+        let idx = self.high(x);
+        let low = self.low(x);
+        let mut subtree = &mut self.children[idx as usize];
+        subtree.as_mut().unwrap().delete(low);
+        // don't store empty trees, and remove from summary as well
+        if subtree.as_ref().unwrap().is_empty() {
+            subtree.take();
+            summary_mut!(self).delete(idx);
         }
     }
 
