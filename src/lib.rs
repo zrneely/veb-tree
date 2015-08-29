@@ -55,7 +55,6 @@ impl VEBTree {
             Err("universe too big")
         } else {
             // sqrt_universe: 2^(floor(log_2(universe) / 2))
-            // let sqrt_universe = 2i64.pow(((max_elem as f64).ln() / (2f64.ln()) / 2f64).floor() as u32);
             let sqrt_universe = (((max_elem as f64).ln() / (2f64).ln()) / 2f64).exp2() as i64;
             Ok(VEBTree {
                 universe: max_elem,
@@ -108,6 +107,13 @@ impl VEBTree {
         }
     }
 
+    fn find_in_subtree(&self, x: i64) -> Option<i64> {
+        // subtree not present - we need to look in a different cluster. Since universe > 2, we know summary exists.
+        summary!(self).find_next(self.high(x)).map_or(None, |next_index| {
+            Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().minimum()))
+        })
+    }
+
     pub fn find_next(&self, x: i64) -> Option<i64> {
         // base case
         if self.is_empty() {
@@ -125,23 +131,16 @@ impl VEBTree {
             let low = self.low(x);
             // look in subtrees
             subtree!(self, idx as usize).map_or_else(|| {
-                self.find_subtree(x)
+                self.find_in_subtree(x)
             }, |subtree| {
                 let max_low = subtree!(self, idx as usize).unwrap().maximum();
                 if low < max_low {
                     Some(self.index(idx, subtree.find_next(low).unwrap()))
                 } else {
-                    self.find_subtree(x)
+                    self.find_in_subtree(x)
                 }
             })
         }
-    }
-
-    fn find_subtree(&self, x: i64) -> Option<i64> {
-        // subtree not present - we need to look in a different cluster. Since universe > 2, we know summary exists.
-        summary!(self).find_next(self.high(x)).map_or(None, |next_index| {
-            Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().minimum()))
-        })
     }
 
     // ========
