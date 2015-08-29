@@ -1,10 +1,10 @@
 
 use std::mem;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VEBTree {
     // box is necessary for recursion
-    children: Vec<Option<Box<VEBTree>>>,
+    children: Vec<Option<VEBTree>>,
     summary: Option<Box<VEBTree>>,
     // special cases of min and max:
     // if the tree is empty, min > max
@@ -13,19 +13,6 @@ pub struct VEBTree {
     max: i64,
     universe: i64,
     sqrt_universe: i64,
-}
-
-impl Clone for VEBTree {
-    fn clone(&self) -> Self {
-        VEBTree {
-            children: self.children.clone(),
-            summary: self.summary.clone(),
-            min: self.min,
-            max: self.max,
-            universe: self.universe,
-            sqrt_universe: self.sqrt_universe,
-        }
-    }
 }
 
 // helper macros
@@ -63,23 +50,24 @@ impl VEBTree {
 
     pub fn new(max_elem: i64) -> Result<Self, &'static str> {
         if max_elem <= 1 {
-            Err("universe size must be > 2")
+            Err("universe size must be > 1")
         } else if max_elem > isize::max_value() as i64 {
             Err("universe too big")
         } else {
             // sqrt_universe: 2^(floor(log_2(universe) / 2))
-            let sqrt_universe = ((((max_elem as f64).ln()) / (2f64).ln()) / 2f64).exp2() as i64;
+            // let sqrt_universe = 2i64.pow(((max_elem as f64).ln() / (2f64.ln()) / 2f64).floor() as u32);
+            let sqrt_universe = (((max_elem as f64).ln() / (2f64).ln()) / 2f64).exp2() as i64;
             Ok(VEBTree {
                 universe: max_elem,
                 sqrt_universe: sqrt_universe,
                 min: max_elem,
                 max: -1,
-                summary: if max_elem <= 2 {
+                summary: if max_elem == 2 {
                     None
                 } else {
                     Some(Box::new(VEBTree::new(sqrt_universe).unwrap()))
                 },
-                children: if max_elem <= 2 {
+                children: if max_elem == 2 {
                     vec![]
                 } else {
                     vec![None; sqrt_universe as usize]
@@ -166,76 +154,73 @@ impl VEBTree {
     }
 
     pub fn insert(&mut self, mut x: i64) {
-        match self.is_empty() {
-            true => self.empty_insert(x),
-            false => {
-                if self.min == self.max {
-                    if x < self.min {
-                        self.min = x;
-                    }
-                    if x > self.max {
-                        self.max = x;
-                    }
-                }
+        if self.is_empty() {
+            self.empty_insert(x);
+        } else {
+            if self.min == self.max {
                 if x < self.min {
-                    mem::swap(&mut self.min, &mut x);
+                    self.min = x;
                 }
                 if x > self.max {
                     self.max = x;
                 }
-                let idx = self.high(x);
-                let low = self.low(x);
-                let sqrt = self.sqrt_universe;
-                let subtree = &mut self.children[idx as usize];
-                match *subtree {
-                    Some(ref mut subtree) => subtree.insert(low),
-                    None => {
-                        let mut new_tree = VEBTree::new(sqrt).unwrap();
-                        new_tree.empty_insert(low);
-                        mem::replace(subtree, Some(Box::new(new_tree)));
-                        summary_mut!(self).insert(idx);
-                    },
-                }
-            },
-        }
+            }
+            if x < self.min {
+                mem::swap(&mut self.min, &mut x);
+            }
+            if x > self.max {
+                self.max = x;
+            }
+            let idx = self.high(x);
+            let low = self.low(x);
+            let sqrt = self.sqrt_universe;
+            let subtree = &mut self.children[idx as usize];
+            match *subtree {
+                Some(ref mut subtree) => subtree.insert(low),
+                None => {
+                    let mut new_tree = VEBTree::new(sqrt).unwrap();
+                    new_tree.empty_insert(low);
+                    mem::replace(subtree, Some(new_tree));
+                    summary_mut!(self).insert(idx);
+                },
+            };
+        };
     }
 
     pub fn delete(&mut self, mut x: i64) {
-        match self.min == self.max && self.min == x {
-            // base case - empty the tree
-            true => { self.min = self.universe; self.max = -1; },
-            false => {
-                if self.min == x {
-                    // we need to calculate the new minimum
-                    self.min = if summary!(self).is_empty() {
-                        self.max // return
-                    } else {
-                        // we need to insert the old minimum
-                        x = subtree!(self, summary!(self).minimum() as usize).unwrap().minimum();
-                        x
-                    }
+        if self.min == self.max && self.min == x {
+            self.min = self.universe; self.max = -1;
+        } else {
+            if self.min == x {
+                // we need to calculate the new minimum
+                self.min = if summary!(self).is_empty() {
+                    self.max // return
+                } else {
+                    // we need to insert the old minimum
+                    x = subtree!(self, summary!(self).minimum() as usize).unwrap().minimum();
+                    x
                 }
-                if self.max == x {
-                    // we need to calculate the new maximum
-                    self.max = if summary!(self).is_empty() { // only 1 element in the tree
-                        self.min
-                    } else {
-                        subtree!(self, summary!(self).maximum() as usize).unwrap().maximum()
-                    }
+            }
+            if self.max == x {
+                // we need to calculate the new maximum
+                self.max = if summary!(self).is_empty() { // only 1 element in the tree
+                    self.min
+                } else {
+                    subtree!(self, summary!(self).maximum() as usize).unwrap().maximum()
                 }
-                if !summary!(self).is_empty() {
-                    // recurse
-                    let idx = self.high(x);
-                    let low = self.low(x);
-                    let mut subtree = &mut self.children[idx as usize];
-                    subtree.as_mut().unwrap().delete(low);
-                    // don't store empty trees, and remove from summary as well
-                    if subtree.as_ref().unwrap().is_empty() {
-                        subtree.take();
-                        summary_mut!(self).delete(idx);
-                    }
-                }
-            },
+            }
+            if !summary!(self).is_empty() {
+                // recurse
+                let idx = self.high(x);
+                let low = self.low(x);
+                let mut subtree = &mut self.children[idx as usize];
+                subtree.as_mut().unwrap().delete(low);
+                // don't store empty trees, and remove from summary as well
+                if subtree.as_ref().unwrap().is_empty() {
+                    subtree.take();
+                    summary_mut!(self).delete(idx);
+                };
+            };
         };
     }
 
