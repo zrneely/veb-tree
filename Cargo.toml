@@ -1,5 +1,5 @@
 [package]
-name = "veb-tree"
+name = "veb-rs"
 version = "0.1.0"
 authors = ["Zachary Neely <zach@zrnee.ly>"]
 description = "A van Emde Boas tree in Rust"

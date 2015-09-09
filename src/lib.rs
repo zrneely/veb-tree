@@ -3,7 +3,6 @@ use std::mem;
 
 #[derive(Debug, Clone)]
 pub struct VEBTree {
-    // box is necessary for recursion
     children: Vec<Option<VEBTree>>,
     summary: Option<Box<VEBTree>>,
     // special cases of min and max:
