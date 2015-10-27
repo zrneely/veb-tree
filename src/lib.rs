@@ -100,16 +100,16 @@ impl VEBTree {
         } else if self.universe == 2 || x > self.universe {
             false
         } else {
-            subtree!(self, self.high(x) as usize).map_or(false, |subtree| {
-                subtree.has(self.low(x))
-            })
+            subtree!(self, self.high(x) as usize).map_or(false, |subtree| subtree.has(self.low(x)))
         }
     }
 
     fn find_in_subtree(&self, x: i64) -> Option<i64> {
-        // subtree not present - we need to look in a different cluster. Since universe > 2, we know summary exists.
+        // subtree not present - we need to look in a different cluster. Since universe
+        // > 2, we know summary exists.
         summary!(self).find_next(self.high(x)).map_or(None, |next_index| {
-            Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().minimum()))
+            Some(self.index(next_index,
+                            subtree!(self, next_index as usize).unwrap().minimum()))
         })
     }
 
@@ -129,9 +129,7 @@ impl VEBTree {
             let idx = self.high(x);
             let low = self.low(x);
             // look in subtrees
-            subtree!(self, idx as usize).map_or_else(|| {
-                self.find_in_subtree(x)
-            }, |subtree| {
+            subtree!(self, idx as usize).map_or_else(|| self.find_in_subtree(x), |subtree| {
                 let max_low = subtree!(self, idx as usize).unwrap().maximum();
                 if low < max_low {
                     Some(self.index(idx, subtree.find_next(low).unwrap()))
@@ -180,14 +178,15 @@ impl VEBTree {
                     new_tree.empty_insert(low);
                     mem::replace(subtree, Some(new_tree));
                     summary_mut!(self).insert(idx);
-                },
-            };
-        };
+                }
+            }
+        }
     }
 
     pub fn delete(&mut self, mut x: i64) {
         if self.min == self.max && self.min == x {
-            self.min = self.universe; self.max = -1;
+            self.min = self.universe;
+            self.max = -1;
         } else {
             if self.min == x {
                 // we need to calculate the new minimum
@@ -201,7 +200,8 @@ impl VEBTree {
             }
             if self.max == x {
                 // we need to calculate the new maximum
-                self.max = if summary!(self).is_empty() { // only 1 element in the tree
+                self.max = if summary!(self).is_empty() {
+                    // only 1 element in the tree
                     self.min
                 } else {
                     subtree!(self, summary!(self).maximum() as usize).unwrap().maximum()
@@ -217,9 +217,9 @@ impl VEBTree {
                 if subtree.as_ref().unwrap().is_empty() {
                     subtree.take();
                     summary_mut!(self).delete(idx);
-                };
-            };
-        };
+                }
+            }
+        }
     }
 
 }
