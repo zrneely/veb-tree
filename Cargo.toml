@@ -8,6 +8,10 @@ description = "A van Emde Boas tree in Rust"
 documentation = "https://zrneely.github.io/veb-tree/"
 keywords = ["tree"]
 license = "MIT"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+]
 
 [dependencies]
 clippy = {version = "0.0.21", optional = true}
