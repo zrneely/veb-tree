@@ -222,7 +222,7 @@ impl VEBTree {
     }
 
     /// Removes an element from this van Emde Boas tree.
-    /// U is the value passed into the constructor.
+    /// Takes O(log(log(U))) time, where U is the argument to the constructor.
     pub fn delete(&mut self, mut x: i64) {
         if self.min == self.max && self.min == x {
             self.min = self.universe;
