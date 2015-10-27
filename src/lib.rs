@@ -1,6 +1,16 @@
 
+#![deny(missing_docs,
+        missing_debug_implementations, missing_copy_implementations,
+        trivial_casts, trivial_numeric_casts,
+        unsafe_code,
+        unstable_features,
+        unused_import_braces, unused_qualifications)]
+
+//! A simple implementation of van Emde Boas trees.
+
 use std::mem;
 
+/// The van Emde Boas tree itself.
 #[derive(Debug, Clone)]
 pub struct VEBTree {
     children: Vec<Option<VEBTree>>,
@@ -47,6 +57,8 @@ impl VEBTree {
         i * self.sqrt_universe + j
     }
 
+    /// Generates a new van Emde Boas tree. Will return an error if
+    /// the input is less than 1 or greater than the max value of an isize.
     pub fn new(max_elem: i64) -> Result<Self, &'static str> {
         if max_elem <= 1 {
             Err("universe size must be > 1")
@@ -78,22 +90,40 @@ impl VEBTree {
     // observers
     // =========
 
-    pub fn minimum(&self) -> i64 {
-        self.min
+    /// Returns the lowest value stored in the tree, or None if it's empty.
+    /// Takes constant time.
+    pub fn minimum(&self) -> Option<i64> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.min)
+        }
     }
 
-    pub fn maximum(&self) -> i64 {
-        self.max
+    /// Returns the highest value stored in the tree, or None if it's empty.
+    /// Takes constant time.
+    pub fn maximum(&self) -> Option<i64> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.max)
+        }
     }
 
+    /// Returns the maximum value it's possible to store in the tree.
+    /// Takes constant time.
     pub fn universe(&self) -> i64 {
         self.universe
     }
 
+    /// Returns true if the tree is empty.
+    /// Takes constant time.
     pub fn is_empty(&self) -> bool {
         self.min > self.max
     }
 
+    /// Returns true if this van Emde Boas tree contains the specified value.
+    /// Takes O(log(log(U))) time, where U is the argument to the constructor.
     pub fn has(&self, x: i64) -> bool {
         if x == self.min || x == self.max {
             true
@@ -108,11 +138,12 @@ impl VEBTree {
         // subtree not present - we need to look in a different cluster. Since universe
         // > 2, we know summary exists.
         summary!(self).find_next(self.high(x)).map_or(None, |next_index| {
-            Some(self.index(next_index,
-                            subtree!(self, next_index as usize).unwrap().minimum()))
+            Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().min))
         })
     }
 
+    /// Finds the next highest value in this van Emde Boas tree, or None if it doesn't exit.
+    /// Takes O(log(log(U))) time, where U is the argument to the constructor.
     pub fn find_next(&self, x: i64) -> Option<i64> {
         // base case
         if self.is_empty() {
@@ -130,7 +161,7 @@ impl VEBTree {
             let low = self.low(x);
             // look in subtrees
             subtree!(self, idx as usize).map_or_else(|| self.find_in_subtree(x), |subtree| {
-                let max_low = subtree!(self, idx as usize).unwrap().maximum();
+                let max_low = subtree!(self, idx as usize).unwrap().max;
                 if low < max_low {
                     Some(self.index(idx, subtree.find_next(low).unwrap()))
                 } else {
@@ -149,6 +180,8 @@ impl VEBTree {
         self.max = x;
     }
 
+    /// Insert a value into this van Emde Boas tree.
+    /// Takes O(log(log(U))) time, where U is the argument to the constructor.
     pub fn insert(&mut self, mut x: i64) {
         if self.is_empty() {
             self.empty_insert(x);
@@ -183,6 +216,8 @@ impl VEBTree {
         }
     }
 
+    /// Removes an element from this van Emde Boas tree.
+    /// U is the value passed into the constructor.
     pub fn delete(&mut self, mut x: i64) {
         if self.min == self.max && self.min == x {
             self.min = self.universe;
@@ -194,7 +229,7 @@ impl VEBTree {
                     self.max // return
                 } else {
                     // we need to insert the old minimum
-                    x = subtree!(self, summary!(self).minimum() as usize).unwrap().minimum();
+                    x = subtree!(self, summary!(self).min as usize).unwrap().min;
                     x
                 }
             }
@@ -204,7 +239,7 @@ impl VEBTree {
                     // only 1 element in the tree
                     self.min
                 } else {
-                    subtree!(self, summary!(self).maximum() as usize).unwrap().maximum()
+                    subtree!(self, summary!(self).max as usize).unwrap().max
                 }
             }
             if !summary!(self).is_empty() {
