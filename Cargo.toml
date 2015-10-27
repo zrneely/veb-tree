@@ -2,7 +2,10 @@
 name = "veb-rs"
 version = "0.1.1"
 authors = ["Zachary Neely <zach@zrnee.ly>"]
+repository = "https://github.com/zrneely/veb-tree.git"
+homepage = "https://github.com/zrneely/veb-tree.git"
 description = "A van Emde Boas tree in Rust"
+documentation = "https://zrneely.github.io/veb-tree/"
 keywords = ["tree"]
 license = "MIT"
 
