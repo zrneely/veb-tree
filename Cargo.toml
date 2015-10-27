@@ -5,3 +5,10 @@ authors = ["Zachary Neely <zach@zrnee.ly>"]
 description = "A van Emde Boas tree in Rust"
 keywords = ["tree"]
 license = "MIT"
+
+[dependencies]
+clippy = {version = "0.0.21", optional = true}
+
+[features]
+default = []
+dev = ["clippy"]
