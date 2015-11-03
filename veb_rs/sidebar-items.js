@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["VEBTree","The van Emde Boas tree itself."]]});
