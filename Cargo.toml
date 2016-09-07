@@ -1,10 +1,10 @@
 [package]
-name = "veb-rs"
-version = "0.1.1"
+name = "veb"
+version = "1.0.0"
 authors = ["Zachary Neely <zach@zrnee.ly>"]
 repository = "https://github.com/zrneely/veb-tree.git"
 homepage = "https://github.com/zrneely/veb-tree.git"
-description = "A van Emde Boas tree in Rust"
+description = "A Rust implementation of van Emde Boas trees"
 documentation = "https://zrneely.github.io/veb-tree/"
 keywords = ["tree"]
 license = "MIT"
@@ -14,7 +14,7 @@ include = [
 ]
 
 [dependencies]
-clippy = {version = "0.0.21", optional = true}
+clippy = {version = "*", optional = true}
 
 [features]
 default = []
