@@ -7,6 +7,7 @@ homepage = "https://github.com/zrneely/veb-tree.git"
 description = "A van Emde Boas tree in Rust"
 documentation = "https://zrneely.github.io/veb-tree/"
 keywords = ["tree"]
+build = "build.rs"
 license = "MIT"
 include = [
     "**/*.rs",
