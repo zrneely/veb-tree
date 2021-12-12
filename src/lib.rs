@@ -1,15 +1,17 @@
-
-#![deny(missing_docs,
-        missing_debug_implementations, missing_copy_implementations,
-        trivial_casts, trivial_numeric_casts,
-        unsafe_code,
-        unstable_features,
-        unused_import_braces, unused_qualifications)]
-
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    missing_copy_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unsafe_code,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications
+)]
 #![cfg_attr(feature = "dev", allow(unstable_features))]
 #![cfg_attr(feature = "dev", feature(plugin))]
 #![cfg_attr(feature = "dev", plugin(clippy))]
-
 
 //! A simple implementation of van Emde Boas trees.
 
@@ -33,20 +35,24 @@ pub struct VEBTree {
 
 macro_rules! subtree {
     ( $self_: ident, $x: expr ) => {
-        $self_.children.get($x).expect("child idx out of bounds").as_ref()
-    }
+        $self_
+            .children
+            .get($x)
+            .expect("child idx out of bounds")
+            .as_ref()
+    };
 }
 
 macro_rules! summary {
     ( $self_: ident ) => {
         $self_.summary.as_ref().expect("summary not present")
-    }
+    };
 }
 
 macro_rules! summary_mut {
     ( $self_: ident ) => {
         $self_.summary.as_mut().expect("summary not present")
-    }
+    };
 }
 
 impl VEBTree {
@@ -71,10 +77,10 @@ impl VEBTree {
             Err("universe too big")
         } else {
             // sqrt_universe: 2^(floor(log_2(universe) / 2))
-            let sqrt_universe = (((max_elem as f64).ln() / (2f64).ln()) / 2f64).exp2() as i64;
+            let sqrt_universe = ((max_elem as f64).log2() / 2f64).exp2() as i64;
             Ok(VEBTree {
                 universe: max_elem,
-                sqrt_universe: sqrt_universe,
+                sqrt_universe,
                 min: max_elem,
                 max: -1,
                 summary: if max_elem == 2 {
@@ -142,8 +148,8 @@ impl VEBTree {
     fn find_in_subtree(&self, x: i64) -> Option<i64> {
         // subtree not present - we need to look in a different cluster. Since universe
         // > 2, we know summary exists.
-        summary!(self).find_next(self.high(x)).map_or(None, |next_index| {
-            Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().min))
+        summary!(self).find_next(self.high(x)).map(|next_index| {
+            self.index(next_index, subtree!(self, next_index as usize).unwrap().min)
         })
     }
 
@@ -165,14 +171,17 @@ impl VEBTree {
             let idx = self.high(x);
             let low = self.low(x);
             // look in subtrees
-            subtree!(self, idx as usize).map_or_else(|| self.find_in_subtree(x), |subtree| {
-                let max_low = subtree!(self, idx as usize).unwrap().max;
-                if low < max_low {
-                    Some(self.index(idx, subtree.find_next(low).unwrap()))
-                } else {
-                    self.find_in_subtree(x)
-                }
-            })
+            subtree!(self, idx as usize).map_or_else(
+                || self.find_in_subtree(x),
+                |subtree| {
+                    let max_low = subtree!(self, idx as usize).unwrap().max;
+                    if low < max_low {
+                        Some(self.index(idx, subtree.find_next(low).unwrap()))
+                    } else {
+                        self.find_in_subtree(x)
+                    }
+                },
+            )
         }
     }
 
@@ -214,7 +223,7 @@ impl VEBTree {
                 None => {
                     let mut new_tree = VEBTree::new(sqrt).unwrap();
                     new_tree.empty_insert(low);
-                    mem::replace(subtree, Some(new_tree));
+                    *subtree = Some(new_tree);
                     summary_mut!(self).insert(idx);
                 }
             }
@@ -251,7 +260,7 @@ impl VEBTree {
                 // recurse
                 let idx = self.high(x);
                 let low = self.low(x);
-                let mut subtree = &mut self.children[idx as usize];
+                let subtree = &mut self.children[idx as usize];
                 subtree.as_mut().unwrap().delete(low);
                 // don't store empty trees, and remove from summary as well
                 if subtree.as_ref().unwrap().is_empty() {
@@ -261,7 +270,6 @@ impl VEBTree {
             }
         }
     }
-
 }
 
 #[test]
