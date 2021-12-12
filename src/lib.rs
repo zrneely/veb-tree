@@ -77,10 +77,10 @@ impl VEBTree {
             Err("universe too big")
         } else {
             // sqrt_universe: 2^(floor(log_2(universe) / 2))
-            let sqrt_universe = (((max_elem as f64).ln() / (2f64).ln()) / 2f64).exp2() as i64;
+            let sqrt_universe = ((max_elem as f64).log2() / 2f64).exp2() as i64;
             Ok(VEBTree {
                 universe: max_elem,
-                sqrt_universe: sqrt_universe,
+                sqrt_universe,
                 min: max_elem,
                 max: -1,
                 summary: if max_elem == 2 {
@@ -148,11 +148,9 @@ impl VEBTree {
     fn find_in_subtree(&self, x: i64) -> Option<i64> {
         // subtree not present - we need to look in a different cluster. Since universe
         // > 2, we know summary exists.
-        summary!(self)
-            .find_next(self.high(x))
-            .map_or(None, |next_index| {
-                Some(self.index(next_index, subtree!(self, next_index as usize).unwrap().min))
-            })
+        summary!(self).find_next(self.high(x)).map(|next_index| {
+            self.index(next_index, subtree!(self, next_index as usize).unwrap().min)
+        })
     }
 
     /// Finds the next highest value in this van Emde Boas tree, or None if it doesn't exit.
